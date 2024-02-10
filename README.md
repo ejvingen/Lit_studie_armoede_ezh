@@ -1,1 +1,2 @@
-# Lit_studie_armoede_ezh
+# Scoping review poverty and loneliness 
+# Model predicting in- / exclusion 
