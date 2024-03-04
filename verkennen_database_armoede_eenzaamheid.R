@@ -5,6 +5,7 @@
 # - Vaak onjuiste hits op poor vanwege "poor health", "poor outcomes", etc
 
 library(bib2df)
+
 library(dplyr)
 library(stringr)
 library(summarytools)
@@ -25,9 +26,40 @@ if(file.exists("C:/Users/ejvan")) {
 setwd("./Onderzoeksprojecten/Armoede en eenzaamheid VWS/voorspellen inclusie")
 
 
-tmp1 <- read.csv("customizations_log.csv")
+# ******** TEMP: direct importeren ************************
+
+if(file.exists("C:/Users/ejvan")) {
+    setwd("C:/Users/ejvan/OneDrive - Vrije Universiteit Amsterdam")
+} else if(file.exists("C:/Users/ein900")) {
+    setwd("C:/Users/ein900/OneDrive - Vrije Universiteit Amsterdam")
+} else {
+    warning("Geen van beide mappen gevonden")
+}
+setwd("./Onderzoeksprojecten/Armoede en eenzaamheid VWS")
+
+# onderstaande geeft error maar importeert wel (some entries dropped)
+# eerst RIS file in Endnote openen en dan exporteren naar Bibtex
+tmp2 <- bib2df("C:/temp/test endnote.txt")
+names(tmp)
+freq(tmp$database)
+
+freq(substr(tmp$url, 1, 30))
+tmp$url2 <- substr(tmp$url, 1, 25)
+freq(tmp$url2)
+
+tmp$database2 <- substr(tmp$database, 1, 8)
+freq(tmp$database2)
+
+table(tmp$url2, tmp$database2)   # Web of Sc heeft scopus.com link?!
+
+
+
+# **********************************************************
+
+
+tmp1 <- read.csv("customizations_log 2024 02 27.csv")
 #freq(tmp1$value)    # 1 = included; 2 = excluded?? (en 0 dan?)
-tmp2 <- read.csv("articles.csv")
+tmp2 <- read.csv("articles 2024 02 27.csv")
 
 # id universeel maken en mergen
 tmp2$key <- substr(tmp2$key, 8, nchar(tmp2$key))
@@ -40,12 +72,12 @@ rm(tmp1, tmp2)
 #' ## ******************** Ontdubbelen ed ********************
 
 # names(d)
-# length(unique(d$title))         # 503 unieke titels op 668 cases
+# length(unique(d$title))         # 1001 unieke titels op 1182 cases
 # freq(d$value)
 # freq(d$user_id)                 # Bianca 141; Chantal 527
 
 # dubbele titels bij Chantal? 
-length(unique(d$title[d$user_id == 489417])) # 500 uniek vd 527
+length(unique(d$title[d$user_id == 489417])) # 998 uniek 
 
 # in-/ exclusie - voor nu zonder 0, alleen Chantal, ontdubbeld
 #freq(d$value)
@@ -54,16 +86,41 @@ d <- d %>% filter(value !=0 & d$user_id == 489417)
 d <- d %>% filter(!duplicated(d$article_id))
 
 d$inc <- ifelse(d$value==1, 1, 0)
-freq(d$inc)                     # n = 490, waarvan 83 included
+#freq(d$inc)                     # n = 952, waarvan 136 included
 
 # aanmaken search strings
 str <- paste0("[Ii]ncome|[Ff]inancial|[Pp]overty|[Pp]oor|[Ss]ocioeconomic|",
               "[Ss]ocio-economic|[Ww]ealth[a-z]*|[Ee]conomic depriv[a-z]*|", 
               "[Ee]conomic hardship|[Mm]aterial resources")
+# str2 werkt het beste bij het bestrijden van false negatives
 str2 <- paste0("[Ii]ncome|[Ff]inancial|[Pp]overty|[Ss]ocioeconomic|",
               "[Ss]ocio-economic|[Ww]ealth[a-z]*|[Ee]conomic depriv[a-z]*|", 
               "[Ee]conomic hardship|[Mm]aterial resources")
-str3 <- paste0("[Ii]ncome|[Ff]inancial|[Pp]overty")
+str3 <- paste0("[Ii]ncome|[Ff]inancial|[Pp]overty|[Ss]ocioeconomic|",
+               "[Ss]ocio-economic|[Ww]ealth[a-z]*|[Dd]epriv[a-z]*|", 
+               "[Ee]conomic hardship|[Mm]aterial resources")
+
+
+# ****************** Database uit URL halen? ***************************
+
+freq(substr(d$url, 1, 30))
+d$url2 <- substr(d$url, 1, 25)
+freq(d$url2)
+
+# Included per database
+CrossTable(d$url2, d$inc, prop.c = F, prop.t = F, chisq = F, prop.chisq = F)
+
+
+
+
+
+# ****************** Uitsluiten papers zonder abstract ****************
+
+# artikelen zonder abstract zijn problematisch
+# hoeveel zijn dat er?
+which(train$abstract=="")      # 25 publicaties
+d <- d %>% filter(abstract!="")   # artikelen eruit
+
 
 
 #' ## ***** Hoe vaak komen termen voor en samenhang inclusie  **********
@@ -100,6 +157,19 @@ d$frq_por <- freq_wrd(d$abstract, "[Pp]oor")
 d$frq_por <- ifelse(d$frq_por > 2, 2, d$frq_por)
 CrossTable(d$frq_por, d$inc, prop.c = F, prop.t = F, chisq = F, prop.chisq = F)
 
+# The poor??
+d$frq_thp <- freq_wrd(d$abstract, "[Th]he poor")
+freq(d$frq_thp)        # komt 0 keer voor
+# Poor individuals??
+d$frq_pin <- freq_wrd(d$abstract, "[Pp]oor indiv*")
+freq(d$frq_pin)        # komt 0 keer voor
+# Poor persons??
+#d$frq_pps <- freq_w
+# Poor people??
+d$frq_ppl <- freq_wrd(d$abstract, "[Pp]oor people")
+freq(d$frq_ppl)
+
+
 # Socioeconomic
 d$frq_soe <- freq_wrd(d$abstract, "[Ss]ocioeconomic")
 d$frq_soe <- ifelse(d$frq_soe > 2, 2, d$frq_soe)
@@ -118,7 +188,7 @@ CrossTable(d$frq_wth, d$inc, prop.c = F, prop.t = F, chisq = F, prop.chisq = F)
 d$frq_dpr <- freq_wrd(d$abstract, "[Ee]conomic depriv[a-z]*")
 CrossTable(d$frq_dpr, d$inc, prop.c = F, prop.t = F, chisq = F, prop.chisq = F)
 
-# [Dd]epriv[a-z]* - komt helemaal niet voor
+# [Dd]epriv[a-z]* 
 d$frq_dpr2 <- freq_wrd(d$abstract, "[Dd]epriv[a-z]*")
 CrossTable(d$frq_dpr2, d$inc, prop.c = F, prop.t = F, chisq = F, prop.chisq = F)
 
@@ -126,7 +196,7 @@ CrossTable(d$frq_dpr2, d$inc, prop.c = F, prop.t = F, chisq = F, prop.chisq = F)
 d$frq_hsh <- freq_wrd(d$abstract, "[Ee]conomic hardship")
 CrossTable(d$frq_hsh, d$inc, prop.c = F, prop.t = F, chisq = F, prop.chisq = F)
 
-# hardship - komt helemaal niet voor
+# hardship - 
 d$frq_hsh2 <- freq_wrd(d$abstract, "[Hh]ardship")
 CrossTable(d$frq_hsh2, d$inc, prop.c = F, prop.t = F, chisq = F, prop.chisq = F)
 
@@ -199,6 +269,10 @@ CrossTable(d$arm_abs, d$inc, prop.c = F, prop.t = F, chisq = F, prop.chisq = F)
 d$arm_abs2 <- str_count(d$abstract, str2)
 d$arm_abs2 <- ifelse(d$arm_abs2 > 5, 5, d$arm_abs2)
 CrossTable(d$arm_abs2, d$inc, prop.c = F, prop.t = F, chisq = F, prop.chisq = F)
+
+# search string 1 of 2 scheelt 137 keer 0 hits in abstract. ZOu kwart schelen? 
+
+
 d$arm_abs3 <- str_count(d$abstract, str3)
 d$arm_abs3 <- ifelse(d$arm_abs3 > 5, 5, d$arm_abs3)
 CrossTable(d$arm_abs3, d$inc, prop.c = F, prop.t = F, chisq = F, prop.chisq = F)
@@ -308,13 +382,247 @@ CrossTable(d$soc_jrnl, d$inc, prop.c = F, prop.t = F, chisq = F, prop.chisq = F)
 # summary(M) 
 
 
+
+
 #' ## ************* Voorspellen inclusie *********************
 
 # training data maken 
 # 70-30? (je houdt wel weinig included artikelen over in de test data)
+set.seed(0103)
 tmp <- sample(1:nrow(d), 0.7*nrow(d), F)
 train <- d[tmp,]
 test <- d[setdiff(c(1:nrow(d)), tmp),]
+
+# included?
+freq(train$inc)     # 97
+freq(test$inc)      # 39
+
+
+#' ## ********* Model Training 1: met str2 **********************
+
+MT1 <- glm(inc ~ as.factor(titel) + arm_abs2 + ezh_abs 
+                + soc_jrnl 
+                + as.factor(afst2), data = train, family = "binomial")
+summary(MT1) 
+# pseudo R^2
+ll.null <- MT1$null.deviance / -2
+ll.proposed <- MT1$deviance / -2
+(ll.null - ll.proposed) / ll.null       # veel beter: .209
+
+#' ## Plot data
+pred_data <- data.frame(prob_of_inc = MT1$fitted.values, included = train$inc)
+pred_data <- pred_data[order(pred_data$prob_of_inc, decreasing = F),]
+pred_data$rank <- 1:nrow(pred_data)
+ggplot(data = pred_data, aes(x = rank, y = prob_of_inc)) +
+    scale_colour_manual(values = c("cyan", "black")) +
+    geom_point(aes(color = as.factor(included)), alpha = 1, shape = 4, stroke = 2) +
+    xlab("Index") +
+    ylab("Predicted prob of inclusion")
+
+#' ## Accuracy
+# cut-off 0.3
+pred_data$pred_incl_3 <- pred_data$prob_of_inc >= 0.3
+CrossTable(pred_data$pred_incl_3, pred_data$included, prop.c = F, prop.t = F, 
+           chisq = F, prop.chisq = F, prop.r = T)
+
+# cut-off 0.10
+pred_data$pred_incl_10 <- pred_data$prob_of_inc >= 0.10
+CrossTable(pred_data$pred_incl_10, pred_data$included, prop.c = F, prop.t = F, 
+           chisq = F, prop.chisq = F, prop.r = T)
+
+# cut-off 0.05
+pred_data$pred_incl_05 <- pred_data$prob_of_inc >= 0.05
+CrossTable(pred_data$pred_incl_05, pred_data$included, prop.c = F, prop.t = F, 
+           chisq = F, prop.chisq = F, prop.r = T)
+
+# cut-off 0.02
+pred_data$pred_incl_02 <- pred_data$prob_of_inc >= 0.02
+CrossTable(pred_data$pred_incl_02, pred_data$included, prop.c = F, prop.t = F, 
+           chisq = F, prop.chisq = F, prop.r = T)
+
+# cut-off 0.015
+pred_data$pred_incl_015 <- pred_data$prob_of_inc >= 0.015
+CrossTable(pred_data$pred_incl_01, pred_data$included, prop.c = F, prop.t = F, 
+           chisq = F, prop.chisq = F, prop.r = T)
+
+
+
+# ******** OP TEST DATA ********
+
+test_pred <- predict(MT1, test, type = "response")
+
+#' ## Plot data
+pred_data <- data.frame(prob_of_inc = test_pred, included = test$inc)
+pred_data <- pred_data[order(pred_data$prob_of_inc, decreasing = F),]
+pred_data$rank <- 1:nrow(pred_data)
+ggplot(data = pred_data, aes(x = rank, y = prob_of_inc)) +
+    scale_colour_manual(values = c("cyan", "black")) +
+    geom_point(aes(color = as.factor(included)), alpha = 1, shape = 4, stroke = 2) +
+    xlab("Index") +
+    ylab("Predicted prob of inclusion")
+
+# cut-off 0.20
+pred_data$pred_incl_20 <- pred_data$prob_of_inc >= 0.2
+CrossTable(pred_data$pred_incl_20, pred_data$included, prop.c = F, prop.t = F, 
+           chisq = F, prop.chisq = F, prop.r = T)
+
+# cut-off 0.10 - 5.2% false neg, 49% excluded
+pred_data$pred_incl_10 <- pred_data$prob_of_inc >= 0.10
+CrossTable(pred_data$pred_incl_10, pred_data$included, prop.c = F, prop.t = F, 
+           chisq = F, prop.chisq = F, prop.r = T)
+
+# cut-off 0.05 - 4.1% false neg, 35% excluded
+pred_data$pred_incl_05 <- pred_data$prob_of_inc >= 0.05
+CrossTable(pred_data$pred_incl_05, pred_data$included, prop.c = F, prop.t = F, 
+           chisq = F, prop.chisq = F, prop.r = T)
+
+
+# ***** Exporteer titels + abstracts van included onder .05 pred prob ****
+
+temp <- data.frame(test$title[test_pred <= .05 & test$inc == 1], 
+                   test$abstract[test_pred <= .05 & test$inc == 1])
+
+for (i in 1:nrow(temp)) {
+    write("Titel:", file = "text_out.txt", append = T)
+    write(as.character(temp[i,1]), file = "text_out.txt", append = T)
+    write("Abstract:", file = "text_out.txt", append = T)
+    write(as.character(temp[i,2]), file = "text_out.txt", append = T)
+    write("\n", file = "text_out.txt", append = T)
+}
+
+
+#' ## ********* Model Training 2: met str3 **********************
+
+MT2 <- glm(inc ~ as.factor(titel) + arm_abs3 + ezh_abs 
+           + soc_jrnl 
+           + as.factor(afst3), data = train, family = "binomial")
+summary(MT2) 
+# pseudo R^2
+ll.null <- MT2$null.deviance / -2
+ll.proposed <- MT2$deviance / -2
+(ll.null - ll.proposed) / ll.null       # veel beter: .208
+
+#' ## Plot data
+pred_data <- data.frame(prob_of_inc = MT2$fitted.values, included = train$inc)
+pred_data <- pred_data[order(pred_data$prob_of_inc, decreasing = F),]
+pred_data$rank <- 1:nrow(pred_data)
+ggplot(data = pred_data, aes(x = rank, y = prob_of_inc)) +
+    scale_colour_manual(values = c("cyan", "black")) +
+    geom_point(aes(color = as.factor(included)), alpha = 1, shape = 4, stroke = 2) +
+    xlab("Index") +
+    ylab("Predicted prob of inclusion")
+
+# ******** OP TEST DATA ********
+
+test_pred <- predict(MT2, test, type = "response")
+
+#' ## Plot data
+pred_data <- data.frame(prob_of_inc = test_pred, included = test$inc)
+pred_data <- pred_data[order(pred_data$prob_of_inc, decreasing = F),]
+pred_data$rank <- 1:nrow(pred_data)
+ggplot(data = pred_data, aes(x = rank, y = prob_of_inc)) +
+    scale_colour_manual(values = c("cyan", "black")) +
+    geom_point(aes(color = as.factor(included)), alpha = 1, shape = 4, stroke = 2) +
+    xlab("Index") +
+    ylab("Predicted prob of inclusion")
+
+# cut-off 0.10 - 5.8% false neg, 56% excluded
+pred_data$pred_incl_10 <- pred_data$prob_of_inc >= 0.10
+CrossTable(pred_data$pred_incl_10, pred_data$included, prop.c = F, prop.t = F, 
+           chisq = F, prop.chisq = F, prop.r = T)
+
+# cut-off 0.05 - 5.7% false neg, 32% excluded
+pred_data$pred_incl_05 <- pred_data$prob_of_inc >= 0.05
+CrossTable(pred_data$pred_incl_05, pred_data$included, prop.c = F, prop.t = F, 
+           chisq = F, prop.chisq = F, prop.r = T)
+
+
+
+
+
+
+
+# ********************* RANDOM FORESTS ******************************
+
+library(caret)
+
+MRF1 <- train(y = train$inc, 
+              x = train[c("ezh_tit", "arm_tit2", "arm_abs2", "ezh_abs",
+                        "soc_jrnl", "afst2")],
+              method = "rf")
+test_pred <- predict(MRF1, 
+                     newdata = test[c("ezh_tit", "arm_tit2", "arm_abs2", 
+                                       "ezh_abs", "soc_jrnl", "afst2")])
+
+#' ## Plot data
+pred_data <- data.frame(prob_of_inc = test_pred, included = test$inc)
+pred_data <- pred_data[order(pred_data$prob_of_inc, decreasing = F),]
+pred_data$rank <- 1:nrow(pred_data)
+ggplot(data = pred_data, aes(x = rank, y = prob_of_inc)) +
+    scale_colour_manual(values = c("cyan", "black")) +
+    geom_point(aes(color = as.factor(included)), alpha = 1, shape = 4, stroke = 2) +
+    xlab("Index") +
+    ylab("Predicted prob of inclusion")
+
+# cut-off 0.2 - 9.0% false neg, 78% excluded
+pred_data$pred_incl_2 <- pred_data$prob_of_inc >= 0.2
+CrossTable(pred_data$pred_incl_2, pred_data$included, prop.c = F, prop.t = F, 
+           chisq = F, prop.chisq = F, prop.r = T)
+
+# cut-off 0.1 - 7.9% false neg, 62% excluded
+pred_data$pred_incl_1 <- pred_data$prob_of_inc >= 0.1
+CrossTable(pred_data$pred_incl_1, pred_data$included, prop.c = F, prop.t = F, 
+           chisq = F, prop.chisq = F, prop.r = T)
+
+# cut-off 0.05 - 6.9% false neg, 30% excluded
+pred_data$pred_incl_05 <- pred_data$prob_of_inc >= 0.05
+CrossTable(pred_data$pred_incl_05, pred_data$included, prop.c = F, prop.t = F, 
+           chisq = F, prop.chisq = F, prop.r = T)
+
+    
+
+# ********************* SUPPORT VECTORS MACHINES ***************************
+
+x_train <- train[c("ezh_tit", "arm_tit2", "arm_abs2", "ezh_abs",
+            "soc_jrnl", "afst2")]
+x_test <- test[c("ezh_tit", "arm_tit2", "arm_abs2", "ezh_abs",
+                  "soc_jrnl", "afst2")]
+
+MSVM1 <- train(x = x_train, y = train$inc, 
+               preProcess = c("center", "scale"), 
+               method = "svmLinear3")
+test_pred <- predict(MSVM1, newdata = x_test)
+
+#' ## Plot data
+pred_data <- data.frame(prob_of_inc = test_pred, included = test$inc)
+pred_data <- pred_data[order(pred_data$prob_of_inc, decreasing = F),]
+pred_data$rank <- 1:nrow(pred_data)
+ggplot(data = pred_data, aes(x = rank, y = prob_of_inc)) +
+    scale_colour_manual(values = c("cyan", "black")) +
+    geom_point(aes(color = as.factor(included)), alpha = 1, shape = 4, stroke = 2) +
+    xlab("Index") +
+    ylab("Predicted prob of inclusion")
+
+# cut-off 0.2 - 7.0% false neg, 50% excluded
+pred_data$pred_incl_2 <- pred_data$prob_of_inc >= 0.2
+CrossTable(pred_data$pred_incl_2, pred_data$included, prop.c = F, prop.t = F, 
+           chisq = F, prop.chisq = F, prop.r = T)
+
+# cut-off 0.1 - 7.1% false neg, 30% excluded
+pred_data$pred_incl_1 <- pred_data$prob_of_inc >= 0.1
+CrossTable(pred_data$pred_incl_1, pred_data$included, prop.c = F, prop.t = F, 
+           chisq = F, prop.chisq = F, prop.r = T)
+
+# cut-off 0.05 - 4.7% false neg, 22% excluded
+pred_data$pred_incl_05 <- pred_data$prob_of_inc >= 0.05
+CrossTable(pred_data$pred_incl_05, pred_data$included, prop.c = F, prop.t = F, 
+           chisq = F, prop.chisq = F, prop.r = T)
+
+
+
+
+
+# ************************** OUDERE MODELLEN *************************
 
 
 #' ## ********** Model 1: met str, zonder afstand **********************
@@ -357,7 +665,7 @@ CrossTable(pred_data$pred_incl_15, pred_data$included, prop.c = F, prop.t = F,
            chisq = F, prop.chisq = F, prop.r = F)
 
 
-#' ## ********** Model 2: met str2, met afstand2 **********************
+#' ## ********** Model 2: met str2 **********************
 
 M2 <- glm(inc ~ ezh_tit + arm_tit2 + arm_abs2 + ezh_abs + soc_jrnl + as.factor(afst2), 
           data = d, family = "binomial")
